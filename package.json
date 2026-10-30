@@ -1,0 +1,10 @@
+{
+  "name": "@software-factory/webui", "version": "0.1.0", "private": true, "type": "module",
+  "description": "Software factory pages and embedded chat execution cards",
+  "main": "./lib/index.js",
+  "exports": { ".": "./lib/index.js", "./client": "./lib/client.js", "./runtime": { "types": "./lib/runtime.d.ts", "default": "./lib/runtime.js" }, "./icon": "./icon.svg", "./locale/*.json": "./locale/*.json", "./package.json": "./package.json" },
+  "files": ["lib/index.js", "lib/client.js", "lib/runtime.js", "lib/runtime.d.ts", "README.md", "cordis.patch.yml", "icon.svg", "locale/*.json"],
+  "dsh": { "bundle": { "patch": "./cordis.patch.yml" }, "client": { "platform": "web", "inject": ["@deepseek-ai/dsh-client-ui-renderer", "@deepseek-ai/dsh-client-ui-sidebar", "@deepseek-ai/dsh-client-ui-layout", "@deepseek-ai/dsh-client-ui-conversation", "@deepseek-ai/dsh-client-ui-chat", "@deepseek-ai/dsh-client-ui-tool", "@deepseek-ai/dsh-client-ui-model-selection", "@deepseek-ai/dsh-client-locale", "@deepseek-ai/dsh-api-gateway" ] } },
+  "peerDependencies": { "@deepseek-ai/cordis": "4.0.5-alpha.1", "@software-factory/gateway": "^0.1.1", "@software-factory/manage": "^0.1.0" },
+  "engines": { "node": ">=24" }
+}

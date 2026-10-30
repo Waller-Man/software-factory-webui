@@ -1,0 +1,24 @@
+/** Build against existing DSH dependencies; no network/install/profile changes. */
+import { createRequire } from 'node:module';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { join, dirname, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { spawnSync } from 'node:child_process';
+import { root, host, hostRequire, prepare } from '../../gateway/scripts/dev.mjs';
+await prepare(); const webui = resolve(root, 'packages/webui');
+const ui = createRequire(join(host, 'packages/client/ui-primitives/package.json'));
+const reactTypes = dirname(ui.resolve('@types/react/package.json')); await mkdir(join(webui, 'artifacts'), { recursive: true });
+const checkConfig = join(webui, 'artifacts/tsconfig.json');
+await writeFile(checkConfig, JSON.stringify({ extends: '../tsconfig.json', compilerOptions: { typeRoots: [join(root, 'node_modules/@types'), dirname(reactTypes)], paths: { react: [join(reactTypes, 'index.d.ts')], 'react/jsx-runtime': [join(reactTypes, 'jsx-runtime.d.ts')] } } }));
+const check = spawnSync(process.execPath, [hostRequire.resolve('typescript/bin/tsc'), '--noEmit', '-p', checkConfig], { cwd: root, windowsHide: true, stdio: 'inherit' }); if (check.status) process.exit(check.status);
+const { build } = await import(pathToFileURL(hostRequire.resolve('tsdown')));
+await mkdir(join(webui, 'lib'), { recursive: true });
+await build({ config: false, entry: { index: join(webui, 'src/index.ts') }, outDir: join(webui, 'lib'), platform: 'node', format: 'esm', clean: false, dts: false, outputOptions: { entryFileNames: 'index.js' } });
+await build({ config: false, entry: { client: join(webui, 'src/client.tsx') }, outDir: join(webui, 'lib'), platform: 'browser', format: 'cjs', clean: false, dts: false, define: { 'process.env.NODE_ENV': '"production"' }, deps: { neverBundle: ['react', 'react/jsx-runtime', 'react-dom', /^@deepseek-ai\//] }, outputOptions: { entryFileNames: 'client.js', banner: 'window.__ModuleLoader__.load({id:"@software-factory/webui",factory:(require)=>{', intro: 'var module={exports:{}};var exports=module.exports;', footer: 'return module.exports;}});' } });
+const client = join(webui, 'lib/client.js');
+const styles = (await Promise.all(['src/styles.css', 'src/pages/runtime/styles.css', 'src/pages/orchestration/styles.css'].map(path => readFile(join(webui, path), 'utf8')))).join('\n');
+await writeFile(client, (await readFile(client, 'utf8')).replace('"__SF_STYLES__"', JSON.stringify(styles)));
+await build({ config: false, entry: { runtime: join(webui, 'src/runtime.ts') }, outDir: join(webui, 'lib'), platform: 'browser', format: 'esm', clean: false, dts: false, outputOptions: { entryFileNames: 'runtime.js' } });
+const declaration = spawnSync(process.execPath, [hostRequire.resolve('typescript/bin/tsc'), '--declaration', '--emitDeclarationOnly', '--noEmit', 'false', '--target', 'es2024', '--module', 'esnext', '--moduleResolution', 'bundler', '--skipLibCheck', '--ignoreDeprecations', '6.0', '--outDir', join(webui, 'lib'), join(webui, 'src/runtime.ts')], { cwd: root, windowsHide: true, stdio: 'inherit' });
+if (declaration.status) process.exit(declaration.status);
+console.log('WebUI host/client built and typechecked.');

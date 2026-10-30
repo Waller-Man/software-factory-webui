@@ -1,0 +1,44 @@
+# Installed dependencies and generated build output
+node_modules/
+lib/
+dist/
+build/
+artifacts/
+release/
+releases/
+coverage/
+test-results/
+playwright-report/
+.cache/
+.npm/
+*.tsbuildinfo
+*.log
+
+# Local credentials and machine-specific configuration
+.env
+.env.*
+!.env.example
+!.env.*.example
+.npmrc
+!.npmrc.example
+credentials.json
+credentials.*.json
+connection.private.json
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Distributable archives belong in remote Release attachments
+*.tgz
+*.zip
+
+# Editor and operating-system files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~

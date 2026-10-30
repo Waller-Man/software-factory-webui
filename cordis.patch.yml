@@ -1,0 +1,3 @@
+- insert:
+    - id: sf-webui
+      name: '@software-factory/webui'
