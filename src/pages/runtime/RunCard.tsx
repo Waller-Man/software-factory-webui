@@ -4,6 +4,8 @@ import type { RunCardProps } from '../../runtime.ts';
 import { RuntimeClient, downloadHref, unwrap } from './api.ts';
 import { filesOf, terminal, useRun } from './useRun.ts';
 import type { Translate } from './i18n.ts';
+import { ModelCalls } from './ModelCalls.tsx';
+import { Interaction, InteractionHistory } from './Interaction.tsx';
 
 type CardRuntime = { client: RuntimeClient; t: Translate; modelNameFor?: (provider: string, model: string) => Promise<string | undefined> };
 export function RunCard(props: RunCardProps & CardRuntime) {
@@ -60,11 +62,14 @@ function RunCardBody(props: RunCardProps & CardRuntime) {
         void perform('cancel', async signal => { await unwrap(remote.cancelRun(runtimeSessionId, { runId }, signal)); if (!signal.aborted) retry(); });
     };
     return <section className="sf-run-card" data-status={run?.status} aria-label={props.title ?? t('execution')}>
-        <header><strong>{props.title ?? run?.toolId ?? t('execution')}</strong><span className="sf-run-status" role="status">{run ? t(run.status) : !remote ? t('unavailable') : t('loading')}</span></header>
+        <header><strong>{props.title ?? run?.toolId ?? t('execution')}</strong><span className="sf-run-status" role="status">{run ? t(run.status === 'running' && run.pendingInteraction ? 'waitingUser' : run.status) : !remote ? t('unavailable') : t('loading')}</span></header>
         <p className="sf-run-model"><span>{t('model')}</span> {run?.model ? <>{modelCaption ?? run.model.model}<small>{run.model.provider}</small></> : t('noModel')}</p>
         <div className="sf-run-stage"><span>{run?.stageName ?? run?.stage ?? (run?.status === 'queued' ? t('queued') : t('noStage'))}</span><b>{percent === undefined ? '—' : `${percent}%`}</b></div>
         <div className="sf-run-track" role="progressbar" aria-label={t('progress')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent} aria-valuetext={percent === undefined ? t('noProgress') : undefined}><div style={{ width: `${percent ?? 0}%` }} /></div>
         {run?.message && <p className="sf-run-message">{run.message}</p>}
+        {run?.status === 'running' && run.pendingInteraction && <Interaction key={run.pendingInteraction.interactionId} item={run.pendingInteraction} client={props.client}
+            source={run.sourceSessionId ?? runtimeSessionId} runId={runId} t={t} onAnswered={retry} />}
+        {run?.interactions && <InteractionHistory items={run.interactions} t={t} />}
         {issue && <p className="sf-run-error" role="alert">{issue.stage && <b>{issue.stage} · </b>}{issue.message}</p>}
         {warning && <p className="sf-run-warning">{t('warning')}{warning.stage ? ` · ${warning.stage}` : ''}：{warning.message}</p>}
         {run?.status === 'failed' && !issue && <p className="sf-run-error" role="alert">{run.message ?? t('failed')}</p>}
@@ -72,6 +77,7 @@ function RunCardBody(props: RunCardProps & CardRuntime) {
         {files.length > 0 && <div className="sf-run-files" aria-label={t('finalArtifacts')}><b>{t('finalArtifacts')}</b>{files.map(file => <button type="button" key={file.artifactId} disabled={!remote || !!busy} onClick={() => download(file)} title={file.name}><span aria-hidden="true">↓ </span>{t('download')} {file.name}</button>)}</div>}
         {!!run?.intermediateDirectories?.length && <div className="sf-run-directories" aria-label={t('intermediate')}><b>{t('intermediate')}</b>{run.intermediateDirectories.map(directory => <div key={directory.path}><button type="button" disabled={!session || !!busy} onClick={() => openDirectory(directory.path)}>{t('openDirectory')} · {directory.fileCount} {t('fileCount')}</button><small>{directory.path}</small></div>)}</div>}
         {run && (run.logs.length > 0 || run.issues.length > 1) && <details className="sf-run-details"><summary>{t('details')}</summary>{run.logs.map((log, i) => <p key={`l${i}`}>{log.stage && <b>{log.stage} · </b>}{log.message}</p>)}{run.issues.map((item, i) => <p key={`i${i}`}>{t(item.level)}{item.stage && ` · ${item.stage}`}：{item.message}</p>)}</details>}
+        <ModelCalls calls={run?.modelCalls} remote={remote} session={runtimeSessionId} runId={runId} t={t} />
         {(error || actionError) && <p className="sf-run-error" role="alert">{error || actionError}</p>}
         {!remote && <p className="sf-run-message">{t('enableRuntime')}</p>}
         <footer>{error && remote && <button type="button" onClick={retry}>{t('retry')}</button>}{run && !terminal(run.status) && <button type="button" disabled={!remote || !!busy || run.status === 'cancelling'} onClick={cancel}>{run.status === 'cancelling' || busy === 'cancel' ? t('cancelling') : t('cancel')}</button>}</footer>

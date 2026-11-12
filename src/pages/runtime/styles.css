@@ -1,4 +1,13 @@
 .sf-run-stack { display: grid; gap: 12px; margin-block: 12px; min-width: 0; }
+.sf-run-interaction { margin: 12px 0; padding: 12px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 8px; }
+.sf-run-interaction fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.sf-run-interaction legend { font-weight: 600; white-space: pre-wrap; }
+.sf-run-question-detail { white-space: pre-wrap; }
+.sf-run-option { display: flex; align-items: flex-start; gap: 8px; margin: 10px 0; cursor: pointer; }
+.sf-run-option small { display: block; color: var(--dsw-alias-label-secondary); }
+.sf-run-answer-text { display: grid; gap: 6px; margin: 12px 0; }
+.sf-run-answer-text textarea { box-sizing: border-box; width: 100%; resize: vertical; padding: 8px; font: inherit; color: inherit; background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l2); border-radius: 6px; }
+.sf-run-answer-text textarea:focus-visible { outline: 2px solid var(--dsw-alias-link); outline-offset: 2px; }
 .sf-run-card { box-sizing: border-box; width: 100%; min-width: 0; padding: 16px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 14px; background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); font: inherit; font-size: 13px; line-height: 1.55; overflow-wrap: anywhere; }
 .sf-run-card header, .sf-run-stage { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .sf-run-card header strong { font-size: 14px; font-weight: 600; }
@@ -31,3 +40,7 @@
 .sf-run-card footer { display: flex; justify-content: flex-end; gap: 8px; }
 .sf-run-card footer:not(:empty) { margin-top: 12px; }
 @media (prefers-reduced-motion: reduce) { .sf-run-track > div { transition: none; } }
+
+.sf-run-model-call { margin: 8px 0; }
+.sf-run-model-call small { display: block; overflow-wrap: anywhere; opacity: .7; margin: 6px 0; }
+.sf-run-model-call pre { max-height: 320px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; padding: 10px; border: 1px solid var(--border-color, #ddd); border-radius: 6px; font-size: 12px; }

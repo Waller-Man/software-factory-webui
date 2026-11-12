@@ -1,4 +1,7 @@
 export const zh = {
+    waitingUser: '等待用户', clearChoice: '清除选择', answerText: '补充内容', submitAnswer: '提交并继续', sendingAnswer: '提交中…',
+    interactionHistory: '交互记录', answered: '已回答', answerExpired: '等待超时', answerCancelled: '已撤回',
+    modelCalls: '模型请求记录', recordUnavailable: '当前执行服务不支持请求详情，请升级 Runtime',
     execution: '任务执行', model: '执行模型', noModel: '未设置模型', noStage: '尚未上报阶段', noProgress: '尚未上报进度',
     progress: '执行进度', loading: '读取中', unavailable: '执行服务未就绪', enableRuntime: '请启用 Runtime 插件后查看。',
     queued: '排队中', running: '运行中', cancelling: '取消中', completed: '已完成', failed: '执行失败', cancelled: '已取消', interrupted: '已中断',
@@ -9,6 +12,9 @@ export const zh = {
 export type Key = keyof typeof zh;
 export type Translate = (key: Key) => string;
 export const en: Record<Key, string> = {
+    waitingUser: 'Waiting for you', clearChoice: 'Clear choice', answerText: 'Additional text', submitAnswer: 'Submit and continue', sendingAnswer: 'Submitting…',
+    interactionHistory: 'Interaction history', answered: 'Answered', answerExpired: 'Wait expired', answerCancelled: 'Withdrawn',
+    modelCalls: 'Model requests', recordUnavailable: 'Request details require an updated Runtime',
     execution: 'Task execution', model: 'Model', noModel: 'No model configured', noStage: 'No stage reported', noProgress: 'No progress reported',
     progress: 'Execution progress', loading: 'Loading', unavailable: 'Runtime unavailable', enableRuntime: 'Enable the Runtime plugin to view this task.',
     queued: 'Queued', running: 'Running', cancelling: 'Cancelling', completed: 'Completed', failed: 'Failed', cancelled: 'Cancelled', interrupted: 'Interrupted',

@@ -52,6 +52,11 @@ test('built chat card uses generated Runtime Remote, updates progress, reports e
     (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
     const React = uiRequire('react'), { createRoot } = uiRequire('react-dom/client');
     const root = createRoot(dom.window.document.getElementById('mount'));
+    saved.set('fetch', Object.getOwnPropertyDescriptor(globalThis, 'fetch'));
+    Object.defineProperty(globalThis, 'fetch', { configurable: true, writable: true, value: async (url: string, options: any) => {
+        assert.equal(url, '/api/sf-runtime/ui-session'); assert.equal(options.method, 'POST'); assert.equal(options.credentials, 'same-origin');
+        return Response.json({ ok: true, data: { token: 'synthetic-ui-token', expiresAt: Date.now() + 600000 } });
+    } });
     const ctx = new Context(), registrations: any[] = [], definitions: any[] = [], calls: string[] = [], downloads: string[] = [], finished: any[] = [], opened: string[] = [];
     let client: any, pending: (() => void) | undefined, waitAborted = 0;
     let run: RunRecord = { apiVersion: '1.0', runId: id, toolId: 'report_tool', status: 'queued', createdAt: '2026-10-30T00:00:00Z', model: { provider: 'synthetic-provider', model: 'synthetic-model' }, logs: [], issues: [], artifacts: [], lastSeq: 0 };
@@ -80,6 +85,19 @@ test('built chat card uses generated Runtime Remote, updates progress, reports e
                 assert.equal(args.runtimeSessionId, 'source-session');
                 assert.equal(args.request.runId, run.runId);
                 if (endpoint === 'sfRuntime/getRun') return payload(run);
+                if (endpoint === 'sfRuntime/answerInteraction') {
+                    assert.equal(args.uiToken, 'synthetic-ui-token');
+                    const item = run.pendingInteraction!; assert.equal(args.request.interactionId, item.interactionId);
+                    assert.equal(args.request.answer.type, item.request.type);
+                    if (item.request.type === 'select') assert.equal('text' in args.request.answer, false);
+                    if (item.request.type === 'text') assert.equal('value' in args.request.answer, false);
+                    run = { ...run, pendingInteraction: undefined, interactions: [{ ...item, status: 'answered', answer: { ...args.request.answer, interactionId: item.interactionId } }], lastSeq: run.lastSeq + 1 };
+                    pending?.(); return payload({ interactionId: item.interactionId, status: 'answered' });
+                }
+                if (endpoint === 'sfRuntime/getModelCall') {
+                    assert.equal(args.request.requestId, id2);
+                    return payload({ ...run.modelCalls![0], request: { messages: [{ role: 'user', content: '<script>synthetic-request</script>' }] }, response: { text: 'synthetic-response' } });
+                }
                 if (endpoint === 'sfRuntime/waitRun') {
                     assert.equal(args.request.waitMs, 15000);
                     await new Promise<void>((resolve, reject) => {
@@ -133,15 +151,45 @@ test('built chat card uses generated Runtime Remote, updates progress, reports e
         await paint({ runId: id }); assert.equal(finished.length, 1, 'Rerender must not repeat the terminal callback');
         run = { ...run, runId: id2, status: 'running', issues: [], result: undefined, lastSeq: 0 };
         await paint({ runId: id2 });
+        // Exercise the three interaction forms through the built Client and generated Remote.
+        for (const [index, type] of (['select', 'text', 'mixed'] as const).entries()) {
+            const interactionId = `c3333333-3333-4333-8333-33333333333${index}`;
+            const request: any = { type, question: `synthetic-question-${type}`, ...(type === 'text' ? {} : { options: [{ value: 'a', label: 'Option A' }] }) };
+            await advance({ sourceSessionId: 'source-session', interactions: [], pendingInteraction: { interactionId, request, status: 'pending', createdAt: run.createdAt, expiresAt: '2099-01-01T00:00:00Z' } });
+            assert.equal(doc.querySelectorAll('.sf-run-interaction textarea').length, type === 'select' ? 0 : 1);
+            assert.equal(doc.querySelectorAll('.sf-run-interaction input[type=radio]').length, type === 'text' ? 0 : 1);
+            assert.equal((doc.querySelector('.sf-run-interaction button[type=submit]') as HTMLButtonElement).disabled, true);
+            await React.act(async () => {
+                if (type !== 'text') (doc.querySelector('.sf-run-interaction input[type=radio]') as HTMLInputElement).click();
+                else {
+                    const area = doc.querySelector('.sf-run-interaction textarea')!;
+                    Object.getOwnPropertyDescriptor(dom.window.HTMLTextAreaElement.prototype, 'value')!.set!.call(area, 'synthetic answer');
+                    area.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+                }
+                await settle();
+            });
+            assert.equal((doc.querySelector('.sf-run-interaction button[type=submit]') as HTMLButtonElement).disabled, false);
+            await React.act(async () => { (doc.querySelector('.sf-run-interaction button[type=submit]') as HTMLButtonElement).click(); await settle(); });
+            assert.equal(doc.querySelector('.sf-run-interaction'), null);
+            assert.ok(doc.body.textContent.includes(`synthetic-question-${type}`), 'Settled answer remains in history');
+        }
+        assert.equal(calls.filter(call => call === 'sfRuntime/answerInteraction').length, 3);
         const cancel = [...doc.querySelectorAll('button')].find((b: any) => b.textContent === '取消') as any;
         await React.act(async () => { cancel.click(); await settle(); });
         assert.equal(doc.querySelector('.sf-run-card')!.getAttribute('data-status'), 'cancelled');
         assert.equal(finished.at(-1).status, 'cancelled');
         // Restored completed task: text and final download, without an active wait loop.
-        run = { ...run, runId: id, status: 'completed', result: { text: '报告已生成', files: deliveries }, artifacts: [...deliveries, file, ...intermediates], intermediateDirectories, lastSeq: 9 };
+        run = { ...run, runId: id, status: 'completed', result: { text: '报告已生成', files: deliveries }, artifacts: [...deliveries, file, ...intermediates], intermediateDirectories, lastSeq: 9,
+            modelCalls: [{ requestId: id2, protocol: 'openai-completions', model: run.model!, status: 'completed', startedAt: run.createdAt, durationMs: 12 }] };
         const before = calls.filter(c => c === 'sfRuntime/waitRun').length;
         await paint({ runId: id });
         assert.ok(doc.body.textContent.includes('报告已生成'));
+        assert.equal(calls.includes('sfRuntime/getModelCall'), false, 'Do not fetch request bodies until expanded');
+        const modelCall = doc.querySelector('.sf-run-model-call') as HTMLDetailsElement;
+        await React.act(async () => { modelCall.open = true; modelCall.dispatchEvent(new dom.window.Event('toggle')); await settle(); });
+        assert.ok(calls.includes('sfRuntime/getModelCall'));
+        assert.match(modelCall.querySelector('pre')!.textContent!, /synthetic-request/);
+        assert.equal(modelCall.querySelector('script'), null, 'Model text must remain escaped text');
         assert.equal(doc.querySelectorAll('.sf-run-files button').length, 2, 'Show result.files only, even when the artifact index contains more final files');
         assert.equal(doc.body.textContent.includes('报告.docx'), false);
         assert.deepEqual(Array.from(finished.at(-1).files, (f: any) => f.artifactId), deliveries.map(f => f.artifactId));

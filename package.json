@@ -1,5 +1,5 @@
 {
-  "name": "@software-factory/webui", "version": "0.1.0", "private": true, "type": "module",
+  "name": "@software-factory/webui", "version": "0.1.2", "private": true, "type": "module",
   "description": "Software factory pages and embedded chat execution cards",
   "main": "./lib/index.js",
   "exports": { ".": "./lib/index.js", "./client": "./lib/client.js", "./runtime": { "types": "./lib/runtime.d.ts", "default": "./lib/runtime.js" }, "./icon": "./icon.svg", "./locale/*.json": "./locale/*.json", "./package.json": "./package.json" },
