@@ -19,6 +19,7 @@ export const fields: Field[] = [
     { key: 'invoke_kind', title: '调用方式', group: 2, object: 'AgentVersion' },
     { key: 'dsh_ref', title: '调用入口', group: 2, object: 'AgentVersion', hint: '使用真实接口名称，未知时省略' },
     { key: 'performance_evidence_json', title: '性能证据', group: 3, object: 'AgentVersion', json: true, hint: 'JSON对象。论文指标注明论文与实验模型；不编造实测记录' },
+    { key: 'datasets_json', id: 'datasets', title: '数据集', group: 3, object: 'AgentVersion', json: true, hint: '可选条目数组；名称及相对路径或来源网址。根位置统一从数据库读取，留空不阻止提交' },
     { key: 'constraints_json', title: '运行条件', group: 4, object: 'AgentVersion', json: true, hint: 'JSON对象，未知可选值省略' },
     { key: 'model_dependencies_json', title: '模型依赖', group: 4, object: 'AgentVersion', json: true, hint: 'JSON对象数组，例如每项声明name和可选vendor；不是DSH路由ID' },
     { key: 'selection_policy_json', title: '优选指标', group: 5, object: 'AgentVersion', json: true, hint: '当前版本的JSON对象，不继承分类或逻辑Agent策略' },

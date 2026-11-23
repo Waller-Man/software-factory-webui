@@ -1,9 +1,11 @@
-import type { GraphSnapshot } from '../../../contracts/src/gateway.ts';
+import type { GraphSnapshot, FactoryConfigData } from '../../../contracts/src/gateway.ts';
 import type { ManageDraft, DraftSummary, NodeKind, NodeRef, PreviewResult, CommitReceipt, DraftMode, DraftContext } from '../../../contracts/src/manage.ts';
 import { Api, ApiError } from './api.ts';
 import { buildFieldCatalog, defaultCatalog, type FieldCatalog } from '../pages/manage/fields.ts';
 import { overlay, keyOf, refOf, labelOf } from '../pages/overview/graph.ts';
 export interface State {
+    factoryConfig?: FactoryConfigData;
+    factoryConfigError?: string;
     fieldCatalog?: FieldCatalog;
     graph?: GraphSnapshot;
     complete: boolean;
@@ -52,8 +54,8 @@ export class Controller {
         return job;
     }
     async load() { return this.task(async () => {
-        const [result, catalog] = await Promise.all([this.api.snapshot(this.life.signal), this.api.fieldGroups(this.life.signal).then(buildFieldCatalog).catch(() => ({ ...defaultCatalog, warning: '字段定义读取失败，暂使用内置字段。' }))]);
-        this.set({ ...result, fieldCatalog: catalog, ...(catalog.warning ? { notice: catalog.warning } : {}) }); await this.list();
+        const [result, catalog, config] = await Promise.all([this.api.snapshot(this.life.signal), this.api.fieldGroups(this.life.signal).then(buildFieldCatalog).catch(() => ({ ...defaultCatalog, warning: '字段定义读取失败，暂使用内置字段。' })), this.api.factoryConfig(this.life.signal).then(factoryConfig => ({ factoryConfig, factoryConfigError: undefined })).catch(() => ({ factoryConfig: undefined, factoryConfigError: '公共数据集配置读取失败，仍可编辑登记资料；请检查Read 0.1.2。' }))]);
+        this.set({ ...result, ...config, fieldCatalog: catalog, ...(catalog.warning ? { notice: catalog.warning } : {}) }); await this.list();
     }); }
     async refreshDrafts() { await this.list(); }
     private async list() { try {

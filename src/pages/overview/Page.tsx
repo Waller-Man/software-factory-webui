@@ -143,7 +143,7 @@ export function OverviewPage({ controller: c, state: s }: {
         <span className="sf-dot" data-kind={row.node.label}/>
         <span>{labelOf(row.node)}</span>{row.node.pending && <small>{({ create: '+', update: '改', delete: '删' })[row.node.pending]}</small>}{row.shared && <small>↗</small>}</div>)}{!tree.length && <p>暂无节点。可点击刷新读取。</p>}</aside> },
       { id: 'canvas', label: '画布', initial: 48, min: 180, children: <Canvas rows={tree} selected={s.selected} select={id => c.select(id)} selectable={id => c.canSelect(id)} toggle={toggle} menu={showMenu}/> },
-      { id: 'details', label: '节点详情', initial: 30, min: 180, collapsible: true, children: <aside className="sf-detail"><NodeDetails node={selected} graph={graph} catalog={s.fieldCatalog}/></aside> }
+      { id: 'details', label: '节点详情', initial: 30, min: 180, collapsible: true, children: <aside className="sf-detail"><NodeDetails node={selected} graph={graph} catalog={s.fieldCatalog} factoryConfig={s.factoryConfig} factoryConfigError={s.factoryConfigError}/></aside> }
     ]}/>
     </div>
     {menu && <div className="sf-context" role="menu" style={{ left: menu.x, top: menu.y }} onMouseLeave={() => setMenu(undefined)}>{menu.node.label === 'Capability' && <>

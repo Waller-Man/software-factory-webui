@@ -1,9 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
-import type { InteractionAnswerInput, InteractionRecord } from '../../../../contracts/src/runtime.ts';
+import type { Artifact, InteractionAnswerInput, InteractionRecord } from '../../../../contracts/src/runtime.ts';
 import type { Translate } from './i18n.ts';
 import type { RuntimeClient } from './api.ts';
 
-export function Interaction({ item, client, source, runId, t, onAnswered }: { item: InteractionRecord; client: RuntimeClient; source: string; runId: string; t: Translate; onAnswered: () => void }) {
+type ReviewContext = { artifacts: Artifact[]; onDownload: (file: Artifact) => void; downloadsDisabled: boolean; t: Translate };
+function ReviewFiles({ item, artifacts, onDownload, downloadsDisabled, t }: ReviewContext & { item: InteractionRecord }) {
+    const files = (item.request.artifactIds ?? []).flatMap(id => {
+        const file = artifacts.find(file => file.artifactId === id);
+        return file ? [file] : [];
+    });
+    if (!files.length) return null;
+    return <div className="sf-run-files sf-run-review-files" aria-label={t('reviewFiles')}><b>{t('reviewFiles')}</b>{files.map(file =>
+        <button type="button" key={file.artifactId} disabled={downloadsDisabled} onClick={() => onDownload(file)} title={file.name}>
+            <span aria-hidden="true">↓ </span>{t('download')} {file.name}
+        </button>)}</div>;
+}
+export function Interaction({ item, client, source, runId, t, onAnswered, artifacts, onDownload, downloadsDisabled }: { item: InteractionRecord; client: RuntimeClient; source: string; runId: string; onAnswered: () => void } & ReviewContext) {
     const [value, setValue] = useState(''), [text, setText] = useState(''), [busy, setBusy] = useState(false), [error, setError] = useState('');
     const controller = useRef<AbortController | undefined>(undefined);
     useEffect(() => () => controller.current?.abort(), []);
@@ -24,6 +36,7 @@ export function Interaction({ item, client, source, runId, t, onAnswered }: { it
     return <form className="sf-run-interaction" onSubmit={submit}>
         <fieldset disabled={busy}><legend>{request.question}</legend>
             {request.detail && <p className="sf-run-question-detail">{request.detail}</p>}
+            <ReviewFiles item={item} artifacts={artifacts} onDownload={onDownload} downloadsDisabled={downloadsDisabled} t={t} />
             {'options' in request && request.options.map(option => <label className="sf-run-option" key={option.value}>
                 <input type="radio" name={`question-${item.interactionId}`} value={option.value} checked={value === option.value} onChange={() => setValue(option.value)} />
                 <span>{option.label}{option.description && <small>{option.description}</small>}</span>
@@ -38,13 +51,14 @@ export function Interaction({ item, client, source, runId, t, onAnswered }: { it
     </form>;
 }
 
-export function InteractionHistory({ items, t }: { items: InteractionRecord[]; t: Translate }) {
+export function InteractionHistory({ items, t, artifacts, onDownload, downloadsDisabled }: { items: InteractionRecord[] } & ReviewContext) {
     const settled = items.filter(item => item.status !== 'pending');
     if (!settled.length) return null;
     return <details className="sf-run-details"><summary>{t('interactionHistory')}</summary>{settled.map(item => {
         const answer = item.answer;
         const selected = answer && 'value' in answer && 'options' in item.request ? item.request.options.find(option => option.value === answer.value)?.label : undefined;
         return <div key={item.interactionId}><b>{item.request.question}</b><p>{t(item.status === 'answered' ? 'answered' : item.status === 'expired' ? 'answerExpired' : 'answerCancelled')}
-            {selected && ` · ${selected}`}{answer && 'text' in answer && answer.text && ` · ${answer.text}`}</p></div>;
+            {selected && ` · ${selected}`}{answer && 'text' in answer && answer.text && ` · ${answer.text}`}</p>
+            <ReviewFiles item={item} artifacts={artifacts} onDownload={onDownload} downloadsDisabled={downloadsDisabled} t={t} /></div>;
     })}</details>;
 }

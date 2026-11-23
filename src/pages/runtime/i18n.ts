@@ -1,4 +1,5 @@
 export const zh = {
+    reviewFiles: '审阅文件',
     waitingUser: '等待用户', clearChoice: '清除选择', answerText: '补充内容', submitAnswer: '提交并继续', sendingAnswer: '提交中…',
     interactionHistory: '交互记录', answered: '已回答', answerExpired: '等待超时', answerCancelled: '已撤回',
     modelCalls: '模型请求记录', recordUnavailable: '当前执行服务不支持请求详情，请升级 Runtime',
@@ -12,6 +13,7 @@ export const zh = {
 export type Key = keyof typeof zh;
 export type Translate = (key: Key) => string;
 export const en: Record<Key, string> = {
+    reviewFiles: 'Review files',
     waitingUser: 'Waiting for you', clearChoice: 'Clear choice', answerText: 'Additional text', submitAnswer: 'Submit and continue', sendingAnswer: 'Submitting…',
     interactionHistory: 'Interaction history', answered: 'Answered', answerExpired: 'Wait expired', answerCancelled: 'Withdrawn',
     modelCalls: 'Model requests', recordUnavailable: 'Request details require an updated Runtime',

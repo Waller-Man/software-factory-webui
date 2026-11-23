@@ -1,3 +1,4 @@
+import { DatasetRoot } from '../../shared/Datasets.tsx';
 import { useState } from 'react';
 import type { Controller, State } from '../../shared/controller.ts';
 import { DraftPicker } from '../../shared/DraftPicker.tsx';
@@ -71,6 +72,7 @@ export function ManagePage({ controller: c, state: s }: {
             </> : <>
         <div className="sf-selection">逻辑 Agent：{agent ? labelOf(agent) : '未找到'}　/　版本：{selected ? labelOf(selected) : '未选择'}<p>已有Agent的名称与逻辑能力描述是共享字段，在此只读，请从概览的逻辑Agent修改入口编辑。版本号及版本能力描述可修改，内部节点ID保持不变。</p>
             </div>
+        {step === 3 && <DatasetRoot config={s.factoryConfig} error={s.factoryConfigError}/>}
         {fields.filter(f => f.group === step).map(field => { const target = field.object === 'Agent' ? agent : selected; if (!target)
                 return null; const value = target.properties[field.key]; const locked = !target.vertexId.startsWith('draft:') && field.object === 'Agent'; return <FieldEditor key={`${target.vertexId}:${fieldIdentity(field)}`} field={field} revision={d.revision} value={typeof value === 'string' ? value : undefined} locked={locked} busy={s.busy || d.state !== 'editing'} save={(text, clear, revision) => c.update(refOf(target.vertexId), clear ? {} : { [field.key]: text }, clear ? [field.key] : [], revision)}/>; })}
         {step === 8 && (d.context.origin === 'overview' ? <>

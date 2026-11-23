@@ -109,8 +109,10 @@ test('built chat card uses generated Runtime Remote, updates progress, reports e
                     return payload({ run, events: [], lastSeq: run.lastSeq });
                 }
                 if (endpoint === 'sfRuntime/getArtifact') {
-                    const delivery = run.result?.files.find(f => f.artifactId === args.request.artifactId);
-                    assert.ok(delivery, 'Only request downloads from the declared delivery list');
+                    const reviewIds = [...(run.pendingInteraction?.request.artifactIds ?? []), ...(run.interactions ?? []).flatMap(item => item.request.artifactIds ?? [])];
+                    const allowed = [...(run.result?.files ?? []), ...run.artifacts.filter(file => reviewIds.includes(file.artifactId))];
+                    const delivery = allowed.find(f => f.artifactId === args.request.artifactId);
+                    assert.ok(delivery, 'Only download declared deliveries or files attached to a review');
                     return payload({ ...delivery, downloadUrl: `/api/sf-runtime/download?sessionId=source-session&runId=${run.runId}&artifactId=${delivery.artifactId}` });
                 }
                 if (endpoint === 'sfRuntime/cancelRun') { run = { ...run, status: 'cancelled', lastSeq: run.lastSeq + 1 }; pending?.(); return payload({ runId: run.runId, status: run.status }); }
@@ -155,7 +157,17 @@ test('built chat card uses generated Runtime Remote, updates progress, reports e
         for (const [index, type] of (['select', 'text', 'mixed'] as const).entries()) {
             const interactionId = `c3333333-3333-4333-8333-33333333333${index}`;
             const request: any = { type, question: `synthetic-question-${type}`, ...(type === 'text' ? {} : { options: [{ value: 'a', label: 'Option A' }] }) };
+            if (type !== 'text') request.artifactIds = intermediates.slice(index, index + 2).map(file => file.artifactId);
             await advance({ sourceSessionId: 'source-session', interactions: [], pendingInteraction: { interactionId, request, status: 'pending', createdAt: run.createdAt, expiresAt: '2099-01-01T00:00:00Z' } });
+            assert.equal(doc.querySelectorAll('.sf-run-interaction .sf-run-review-files button').length, type === 'text' ? 0 : 2);
+            assert.equal(doc.querySelectorAll('.sf-run-files:not(.sf-run-review-files) button').length, 0, 'Review files do not become final outputs');
+            if (request.artifactIds) {
+                const before = downloads.length;
+                await React.act(async () => { (doc.querySelector('.sf-run-interaction .sf-run-review-files button') as HTMLButtonElement).click(); await settle(); });
+                assert.equal(downloads.length, before + 1);
+                assert.ok(downloads.at(-1)!.includes('artifactId=' + request.artifactIds[0]));
+                assert.ok(doc.querySelector('.sf-run-interaction'), 'Downloading must not submit the answer');
+            }
             assert.equal(doc.querySelectorAll('.sf-run-interaction textarea').length, type === 'select' ? 0 : 1);
             assert.equal(doc.querySelectorAll('.sf-run-interaction input[type=radio]').length, type === 'text' ? 0 : 1);
             assert.equal((doc.querySelector('.sf-run-interaction button[type=submit]') as HTMLButtonElement).disabled, true);
@@ -172,6 +184,11 @@ test('built chat card uses generated Runtime Remote, updates progress, reports e
             await React.act(async () => { (doc.querySelector('.sf-run-interaction button[type=submit]') as HTMLButtonElement).click(); await settle(); });
             assert.equal(doc.querySelector('.sf-run-interaction'), null);
             assert.ok(doc.body.textContent.includes(`synthetic-question-${type}`), 'Settled answer remains in history');
+            assert.equal(doc.querySelectorAll('.sf-run-details .sf-run-review-files button').length, type === 'text' ? 0 : 2);
+            if (request.artifactIds) {
+                await React.act(async () => { (doc.querySelector('.sf-run-details .sf-run-review-files button') as HTMLButtonElement).click(); await settle(); });
+                assert.ok(downloads.at(-1)!.includes('artifactId=' + request.artifactIds[0]));
+            }
         }
         assert.equal(calls.filter(call => call === 'sfRuntime/answerInteraction').length, 3);
         const cancel = [...doc.querySelectorAll('button')].find((b: any) => b.textContent === '取消') as any;
@@ -179,7 +196,7 @@ test('built chat card uses generated Runtime Remote, updates progress, reports e
         assert.equal(doc.querySelector('.sf-run-card')!.getAttribute('data-status'), 'cancelled');
         assert.equal(finished.at(-1).status, 'cancelled');
         // Restored completed task: text and final download, without an active wait loop.
-        run = { ...run, runId: id, status: 'completed', result: { text: '报告已生成', files: deliveries }, artifacts: [...deliveries, file, ...intermediates], intermediateDirectories, lastSeq: 9,
+        run = { ...run, runId: id, status: 'completed', interactions: [], pendingInteraction: undefined, result: { text: '报告已生成', files: deliveries }, artifacts: [...deliveries, file, ...intermediates], intermediateDirectories, lastSeq: 9,
             modelCalls: [{ requestId: id2, protocol: 'openai-completions', model: run.model!, status: 'completed', startedAt: run.createdAt, durationMs: 12 }] };
         const before = calls.filter(c => c === 'sfRuntime/waitRun').length;
         await paint({ runId: id });
@@ -194,8 +211,9 @@ test('built chat card uses generated Runtime Remote, updates progress, reports e
         assert.equal(doc.body.textContent.includes('报告.docx'), false);
         assert.deepEqual(Array.from(finished.at(-1).files, (f: any) => f.artifactId), deliveries.map(f => f.artifactId));
         const download = [...doc.querySelectorAll('button')].find((b: any) => b.textContent.includes('requirements.zip')) as HTMLButtonElement;
+        const beforeDownloads = downloads.length;
         await React.act(async () => { download.click(); await settle(); });
-        assert.equal(downloads.length, 1); assert.ok(downloads[0].includes(`runId=${id}`));
+        assert.equal(downloads.length, beforeDownloads + 1); assert.ok(downloads.at(-1)!.includes(`runId=${id}`));
         assert.equal(doc.querySelectorAll('.sf-run-directories button').length, 1, 'Restore intermediate directories with completed tasks');
         assert.equal(calls.filter(c => c === 'sfRuntime/waitRun').length, before);
         run = { ...run, runId: id2, status: 'running', lastSeq: 0 };

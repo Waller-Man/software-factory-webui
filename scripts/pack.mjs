@@ -3,7 +3,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { root } from '../../gateway/scripts/dev.mjs';
-import { readTgz } from '../../manage/scripts/archive.mjs';
+import { readTgz, createZip } from '../../manage/scripts/archive.mjs';
 
 const webui = resolve(root, 'packages/webui');
 const artifacts = join(webui, 'artifacts');
@@ -31,4 +31,7 @@ for (const entry of entries) {
   await mkdir(dirname(destination), { recursive: true });
   await writeFile(destination, entry.data);
 }
-console.log(JSON.stringify({ directory: release, files: entries.length, runtimeOnly: true }));
+const manifest = JSON.parse(entries.find(entry => entry.name === 'package.json').data.toString('utf8'));
+const zipName = `software-factory-webui-${manifest.version}.zip`;
+await writeFile(join(artifacts, zipName), createZip(entries.map(entry => ({ ...entry, name: 'software-factory-webui/' + entry.name }))));
+console.log(JSON.stringify({ directory: release, zip: zipName, files: entries.length, runtimeOnly: true }));

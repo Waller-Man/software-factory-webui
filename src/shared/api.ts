@@ -1,5 +1,5 @@
 import type * as M from '../../../contracts/src/manage.ts';
-import type { GatewayResult, GraphSnapshot, SnapshotOptions, ReadQuery, ReadData, NodeView } from '../../../contracts/src/gateway.ts';
+import type { GatewayResult, GraphSnapshot, SnapshotOptions, ReadQuery, ReadData, NodeView, FactoryConfigData } from '../../../contracts/src/gateway.ts';
 export interface Requests {
     status: Record<string, never>;
     createDraft: M.CreateDraftRequest;
@@ -105,6 +105,14 @@ export class Api {
         if (result.meta.apiVersion !== '1.0' || !Array.isArray(result.data.nodes) || !result.data.nodes.every(node => typeof node.vertexId === 'string'))
             throw new ApiError('GATEWAY_CONTRACT', 'Gateway契约不兼容，需要read API 1.0的nodes/vertexId');
         return { graph: result.data, complete: result.meta.complete && !result.meta.truncated };
+    }
+    async factoryConfig(signal?: AbortSignal): Promise<FactoryConfigData> {
+        const remote = this.gateway();
+        if (!remote) throw new ApiError('GATEWAY_UNAVAILABLE', '请启用Read 0.1.2');
+        const result = outer(await remote.read({ kind: 'factory_config' }, signal));
+        if (!result.ok) throw new ApiError(result.error.code, result.error.message);
+        if (!('kind' in result.data) || result.data.kind !== 'factory_config') throw new ApiError('GATEWAY_CONTRACT', '请升级Read 0.1.2以读取公共数据集配置');
+        return result.data;
     }
     async fieldGroups(signal?: AbortSignal): Promise<NodeView[]> {
         const remote = this.gateway();

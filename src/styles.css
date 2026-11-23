@@ -852,3 +852,9 @@
 }
 
 
+
+.sf-dataset-inputs fieldset { min-width:0; margin:12px 0; padding:12px; border:1px solid var(--sf-border); border-radius:8px }
+.sf-dataset-inputs label { display:flex; flex-direction:column; gap:6px; margin:10px 0 }
+.sf-dataset-inputs input { width:100%; min-width:0; box-sizing:border-box }
+.sf-dataset-root, .sf-datasets dd { overflow-wrap:anywhere }
+.sf-dataset-root small { display:block }

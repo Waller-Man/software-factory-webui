@@ -1,5 +1,6 @@
-import type { JsonField } from '../../../contracts/src/gateway.ts';
+import type { JsonField, FactoryConfigData } from '../../../contracts/src/gateway.ts';
 import { defaultCatalog, fieldIdentity, type FieldCatalog } from '../pages/manage/fields.ts';
+import { DatasetValue } from './Datasets.tsx';
 
 const labels: Record<string, string> = {
     name: '名称', name_zh: '中文名称', title: '标题', title_zh: '中文标题', label: '名称', description: '说明', summary: '摘要',
@@ -31,7 +32,8 @@ function Content({ value, depth = 0 }: { value: unknown; depth?: number }) {
     const entries = Object.entries(value);
     return entries.length ? <dl className={`sf-value-object ${depth ? 'sf-value-nested' : ''}`}>{entries.map(([key, item]) => <div key={key}><dt>{fieldTitle(key)}</dt><dd><Content value={item} depth={depth + 1}/></dd></div>)}</dl> : <span className="sf-muted">未声明</span>;
 }
-export function FieldValue({ field, kind, value, parsed, catalog = defaultCatalog }: { field: string; kind?: string; value: unknown; parsed?: JsonField; catalog?: FieldCatalog }) {
+export function FieldValue({ field, kind, value, parsed, catalog = defaultCatalog, factoryConfig, factoryConfigError }: { field: string; kind?: string; value: unknown; parsed?: JsonField; catalog?: FieldCatalog; factoryConfig?: FactoryConfigData; factoryConfigError?: string }) {
+    if (field === 'datasets_json') return <DatasetValue value={value} config={factoryConfig} error={factoryConfigError}/>;
     if (kind === 'AgentVersion' && field === 'description' && (value === undefined || value === null || value === '')) return <span className="sf-muted">未填写</span>;
     const json = kind ? catalog.fields.find(item => item.object === kind && item.key === field)?.json : field.endsWith('_json') || field.endsWith('_schema');
     if (!json) return <Content value={value}/>;
@@ -41,11 +43,11 @@ export function FieldValue({ field, kind, value, parsed, catalog = defaultCatalo
     try { return <Content value={typeof value === 'string' ? JSON.parse(value) : value}/>; }
     catch { return <span role="status" className="sf-muted">资料格式需要修正，暂无法分项展示</span>; }
 }
-export function PropertyGroups({ kind, properties, jsonFields, catalog = defaultCatalog }: { kind: string; properties: Record<string, unknown>; jsonFields?: Record<string, JsonField>; catalog?: FieldCatalog }) {
+export function PropertyGroups({ kind, properties, jsonFields, catalog = defaultCatalog, factoryConfig, factoryConfigError }: { kind: string; properties: Record<string, unknown>; jsonFields?: Record<string, JsonField>; catalog?: FieldCatalog; factoryConfig?: FactoryConfigData; factoryConfigError?: string }) {
     const { fields, groups } = catalog;
     if (kind === 'Capability') return <section className="sf-property-group"><h4>分类信息</h4><dl className="sf-properties"><dt>分类名称</dt><dd><FieldValue field="name" value={properties.name}/></dd></dl></section>;
     return <>{groups.slice(1).map((group, index) => {
         const items = fields.filter(field => field.object === kind && field.group === index + 1);
-        return items.length ? <section className="sf-property-group" key={group}><h4>{group}</h4><dl className="sf-properties">{items.map(field => <div key={fieldIdentity(field)}><dt>{field.title}</dt><dd><FieldValue field={field.key} kind={kind} catalog={catalog} value={properties[field.key]} parsed={jsonFields?.[field.key]}/></dd></div>)}</dl></section> : null;
+        return items.length ? <section className="sf-property-group" key={group}><h4>{group}</h4><dl className="sf-properties">{items.map(field => <div key={fieldIdentity(field)}><dt>{field.title}</dt><dd><FieldValue field={field.key} kind={kind} catalog={catalog} value={properties[field.key]} parsed={jsonFields?.[field.key]} factoryConfig={factoryConfig} factoryConfigError={factoryConfigError}/></dd></div>)}</dl></section> : null;
     })}</>;
 }

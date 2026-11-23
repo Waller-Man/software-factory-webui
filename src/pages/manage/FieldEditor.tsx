@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { fieldIdentity, type Field } from './fields.ts';
 import { FieldValue } from '../../shared/FieldDisplay.tsx';
+import { DatasetInputs } from './DatasetInputs.tsx';
+import { datasetEntries } from '../../shared/Datasets.tsx';
 export function FieldEditor({ field, value, revision, locked, busy, save }: {
     field: Field;
     value?: string;
@@ -21,7 +23,8 @@ export function FieldEditor({ field, value, revision, locked, busy, save }: {
         return; const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; }; window.addEventListener('beforeunload', warn); return () => window.removeEventListener('beforeunload', warn); }, [dirty]);
     async function apply(explicit = false) { if (!dirty || mode === 'keep' || locked)
         return; setSaving(true); try {
-        const result = await save(text, mode === 'unset', explicit ? revision : baseRevision.current);
+        const clear = mode === 'unset' || field.key === 'datasets_json' && datasetEntries(text)?.length === 0;
+        const result = await save(text, clear, explicit ? revision : baseRevision.current);
         if (result)
             setDirty(false);
     }
@@ -40,6 +43,6 @@ export function FieldEditor({ field, value, revision, locked, busy, save }: {
             setText(value ?? ''); }}>
         <option value="keep">保持原值{value === undefined ? '（省略）' : ''}</option>
         <option value="set">填写新值</option>{!field.required && <option value="unset">清空可选属性</option>}</select>{dirty && <button disabled={busy || saving} onClick={() => void apply(true)}>暂存字段</button>}<small>{saving ? '暂存中…' : dirty ? '尚有本地修改，离开字段时暂存' : '已与草稿同步'}</small>
-        </div>{dirty && revision !== baseRevision.current && <p role="status">草稿已变化，本地输入仍保留。核对后点击暂存字段再应用，不会自动覆盖。</p>}{mode !== 'unset' && <textarea id={`sf-field-${fieldIdentity(field)}`} rows={field.json || field.key === 'description' ? 4 : 2} value={text} disabled={busy || saving} placeholder={field.required ? '提交入库时必填，草稿可暂缺' : '未知可选值留空并保持省略'} onChange={e => { begin(); setText(e.target.value); setMode('set'); setDirty(true); }} onBlur={() => { if (revision === baseRevision.current)
-            void apply(); }}/>}{mode === 'unset' && <p>保存该操作后将移除此可选属性，不会填入空字符串。请点击“暂存字段”。</p>}</>}</div>;
+        </div>{dirty && revision !== baseRevision.current && <p role="status">草稿已变化，本地输入仍保留。核对后点击暂存字段再应用，不会自动覆盖。</p>}{mode !== 'unset' && (field.key === 'datasets_json' ? <DatasetInputs value={text} disabled={busy || saving} change={(next, clear) => { begin(); setText(next); setMode(clear ? 'unset' : 'set'); setDirty(true); }} blur={() => { if (revision === baseRevision.current) void apply(); }}/> : <textarea id={`sf-field-${fieldIdentity(field)}`} rows={field.json || field.key === 'description' ? 4 : 2} value={text} disabled={busy || saving} placeholder={field.required ? '提交入库时必填，草稿可暂缺' : '未知可选值留空并保持省略'} onChange={e => { begin(); setText(e.target.value); setMode('set'); setDirty(true); }} onBlur={() => { if (revision === baseRevision.current)
+            void apply(); }}/>)}{mode === 'unset' && <p>保存该操作后将移除此可选属性，不会填入空字符串。请点击“暂存字段”。</p>}</>}</div>;
 }

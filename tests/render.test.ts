@@ -46,7 +46,7 @@ test('built Client defaults to root children, centers/zooms the canvas, and keep
   };
   const root = createRoot(dom.window.document.getElementById('mount'));
   try {
-    runInNewContext(await readFile(resolve(process.env.SF_WEBUI_CLIENT_FILE ?? 'packages/webui/lib/client.js'), 'utf8'), { window: dom.window, document: dom.window.document, fetch: async () => Response.json({ ok: true, data: { token: 'synthetic-ui', expiresAt: new Date(Date.now() + 600000).toISOString() } }), sessionStorage: dom.window.sessionStorage, localStorage: dom.window.localStorage, AbortController, structuredClone, setTimeout, clearTimeout, console });
+    runInNewContext(await readFile(resolve(process.env.SF_WEBUI_CLIENT_FILE ?? 'packages/webui/lib/client.js'), 'utf8'), { window: dom.window, document: dom.window.document, fetch: async () => Response.json({ ok: true, data: { token: 'synthetic-ui', expiresAt: new Date(Date.now() + 600000).toISOString() } }), sessionStorage: dom.window.sessionStorage, localStorage: dom.window.localStorage, AbortController, URL: dom.window.URL, structuredClone, setTimeout, clearTimeout, console });
     assert.ok(module.apply); module.apply(ctx);
     const sidebar = registrations.filter(r => r.options.name === 'sidebar.panellist'); assert.equal(sidebar.length, 3);
     assert.deepEqual(sidebar.map(r => r.options.label()), ['Agent 编排', '软件工厂概览', '软件工厂入库']);
@@ -149,8 +149,24 @@ test('built Client defaults to root children, centers/zooms the canvas, and keep
     f.db.vertices.set('logical', { id: 'logical', label: 'Agent', properties: { agent_id: 'agent:synthetic', name: '合成逻辑Agent', description: '合成能力' } });
     f.db.vertices.set('version', { id: 'version', label: 'AgentVersion', properties: { version: 'v1', status: 'enabled', developer: '合成开发者', input_schema: '{"description":"软件介绍","x-required":true}', output_schema: '{"description":"整理后的文档","x-file-extension":".docx"}', selection_policy_json: '{"metrics":[{"name_zh":"准确率","value":95.5,"unit":"%"}]}' } });
     f.db.edge('HAS_AGENT', 'root', 'logical'); f.db.edge('HAS_VERSION', 'logical', 'version');
+    f.db.schema.vertexlabels.push({ name: 'FactoryConfig', properties: ['dataset_root'] } as any);
+    f.db.schema.propertykeys.push({ name: 'dataset_root', data_type: 'TEXT', cardinality: 'SINGLE' });
+    f.db.vertices.set('config:software-factory', { id: 'config:software-factory', label: 'FactoryConfig', properties: { dataset_root: 'C:\\synthetic-datasets' } });
+    f.db.vertices.get('version').properties.datasets_json = '[{"name":"合成测试集","local_path":"requirements/sample.zip"},{"name":"合成公开来源","source_url":"https://example.com/dataset.zip"}]';
     await React.act(async () => { await controller.load(); controller.select('version'); });
     const detail = doc.querySelector('.sf-detail')!.textContent!;
+    assert.ok(detail.includes('合成测试集') && detail.includes('C:\\synthetic-datasets\\requirements\\sample.zip'));
+    assert.ok(detail.includes('合成公开来源') && !detail.includes('datasets_json') && !detail.includes('local_path'));
+    assert.ok(!nodes().some((el: any) => el.textContent.includes('FactoryConfig')));
+    f.db.vertices.get('config:software-factory').properties.dataset_root = 'https://example.com/datasets';
+    await React.act(async () => { await controller.load(); });
+    assert.ok(doc.querySelector('.sf-detail')!.textContent!.includes('https://example.com/datasets/requirements/sample.zip'));
+    delete f.db.vertices.get('config:software-factory').properties.dataset_root;
+    await React.act(async () => { await controller.load(); });
+    assert.ok(doc.querySelector('.sf-detail')!.textContent!.includes('未配置'));
+    assert.ok(doc.querySelector('.sf-detail a[href="https://example.com/dataset.zip"]'));
+    f.db.vertices.get('config:software-factory').properties.dataset_root = 'C:\\synthetic-datasets';
+    await React.act(async () => { await controller.load(); });
     assert.ok(detail.includes('版本能力描述') && detail.includes('未填写'));
     assert.ok(!detail.includes('合成能力'), 'A missing version description must not inherit the logical Agent description');
     f.db.vertices.get('version').properties.description = '此版本仅支持合成范围';
@@ -178,6 +194,27 @@ test('built Client defaults to root children, centers/zooms the canvas, and keep
     const input = doc.querySelector('.sf-form textarea');
     await clickLabel('折叠入库步骤'); await clickLabel('展开入库步骤'); assert.equal(doc.querySelector('.sf-form textarea'), input);
     assert.equal(retained, 1); assert.equal(released, 0, 'Changing pages must not remount the assistant');
+    await React.act(async () => { await controller.step(3); });
+    assert.ok(doc.querySelector('.sf-form')!.textContent!.includes('C:\\synthetic-datasets'));
+    assert.equal(doc.getElementById('sf-field-AgentVersion.datasets_json'), null, 'Datasets use row controls instead of a raw JSON textarea');
+    const datasetName = doc.querySelector('input[aria-label="数据集1名称"]') as HTMLInputElement;
+    assert.equal(datasetName.value, '合成测试集');
+    await React.act(async () => {
+      Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, 'value')!.set!.call(datasetName, '修改后的合成测试集');
+      datasetName.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+    });
+    await React.act(async () => { const save = [...datasetName.closest('.sf-field')!.querySelectorAll('button')].find((el: any) => el.textContent === '暂存字段') as any; save.click(); await settle(); });
+    assert.equal(controller.getSnapshot().error, undefined);
+    assert.ok(controller.graph().nodes.find((n: any) => n.vertexId === 'version').properties.datasets_json.includes('修改后的合成测试集'));
+    assert.ok(f.db.vertices.get('version').properties.datasets_json.includes('合成测试集')); assert.equal(f.db.writes, 0);
+    await React.act(async () => { (doc.querySelector('.sf-dataset-inputs fieldset button') as any).click(); });
+    await React.act(async () => { (doc.querySelector('.sf-dataset-inputs fieldset button') as any).click(); });
+    const datasetField = doc.querySelector('label[for="sf-field-AgentVersion.datasets_json"]')!.closest('.sf-field')!;
+    assert.ok(datasetField.textContent!.includes('移除此可选属性'));
+    await React.act(async () => { ([...datasetField.querySelectorAll('button')].find((el: any) => el.textContent === '暂存字段') as any).click(); await settle(); });
+    assert.equal(controller.getSnapshot().error, undefined);
+    assert.ok(!Object.hasOwn(controller.graph().nodes.find((n: any) => n.vertexId === 'version').properties, 'datasets_json'));
+    assert.ok(Object.hasOwn(f.db.vertices.get('version').properties, 'datasets_json')); assert.equal(f.db.writes, 0);
     await React.act(async () => {
       const draft = controller.getSnapshot().draft;
       controller.set({ draft: { ...draft, context: { ...draft.context, step: 6 } } });

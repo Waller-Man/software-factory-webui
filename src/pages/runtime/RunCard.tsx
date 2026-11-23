@@ -68,8 +68,10 @@ function RunCardBody(props: RunCardProps & CardRuntime) {
         <div className="sf-run-track" role="progressbar" aria-label={t('progress')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent} aria-valuetext={percent === undefined ? t('noProgress') : undefined}><div style={{ width: `${percent ?? 0}%` }} /></div>
         {run?.message && <p className="sf-run-message">{run.message}</p>}
         {run?.status === 'running' && run.pendingInteraction && <Interaction key={run.pendingInteraction.interactionId} item={run.pendingInteraction} client={props.client}
-            source={run.sourceSessionId ?? runtimeSessionId} runId={runId} t={t} onAnswered={retry} />}
-        {run?.interactions && <InteractionHistory items={run.interactions} t={t} />}
+            source={run.sourceSessionId ?? runtimeSessionId} runId={runId} t={t} onAnswered={retry}
+            artifacts={run.artifacts} onDownload={download} downloadsDisabled={!remote || !!busy} />}
+        {run?.interactions && <InteractionHistory items={run.interactions} t={t}
+            artifacts={run.artifacts} onDownload={download} downloadsDisabled={!remote || !!busy} />}
         {issue && <p className="sf-run-error" role="alert">{issue.stage && <b>{issue.stage} · </b>}{issue.message}</p>}
         {warning && <p className="sf-run-warning">{t('warning')}{warning.stage ? ` · ${warning.stage}` : ''}：{warning.message}</p>}
         {run?.status === 'failed' && !issue && <p className="sf-run-error" role="alert">{run.message ?? t('failed')}</p>}

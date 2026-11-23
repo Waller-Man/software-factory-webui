@@ -11,6 +11,8 @@ test('FieldGroup presentation follows group/field order and binds descriptions b
   group.properties.fields_json = JSON.stringify(definitions);
   const catalog = buildFieldCatalog(metadata);
   assert.equal(catalog.source, 'metadata'); assert.equal(catalog.warning, undefined);
+  assert.equal(catalog.fields.length, 20);
+  assert.equal(catalog.fields.find(field => field.id === 'datasets')?.key, 'datasets_json');
   assert.equal(catalog.groups[1], '功能类');
   const descriptions = catalog.fields.filter(field => field.key === 'description');
   assert.deepEqual(descriptions.map(fieldIdentity), ['Agent.description', 'AgentVersion.description']);
